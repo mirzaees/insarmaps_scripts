@@ -109,7 +109,7 @@ def convert_data(attributes, decimal_dates, timeseries_datasets, dates, json_pat
             y = displacement_values
 
             # y = mx + c -> we want m = slope of the linear regression line 
-            m, c = np.linalg.lstsq(A, y)[0]
+            m, c = np.linalg.lstsq(A, y, rcond=None)[0]
 
             data = {
             "type": "Feature",
@@ -237,7 +237,7 @@ def main():
     path_name = path_name_and_extension[0]
     # ---------------------------------------------------------------------------------------
     # start clock to track how long conversion process takes
-    start_time = time.clock()
+    start_time = time.perf_counter()
 
     # use h5py to open specified group(s) in the h5 file 
     # then read datasets from h5 file into memory for faster reading of data
@@ -309,7 +309,7 @@ def main():
 
     # ---------------------------------------------------------------------------------------
     # check how long it took to read h5 file data and create json files
-    end_time =  time.clock()
+    end_time =  time.perf_counter()
     print(("time elapsed: " + str(end_time - start_time)))
     return
 
