@@ -12,7 +12,7 @@ import argparse
 import pickle
 import numpy
 
-from mintpy.insarmaps.add_attribute_insarmaps import (
+from add_attribute_insarmaps import (
     InsarDatabaseController,
     InsarDatasetController,
 )
