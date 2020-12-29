@@ -2,7 +2,7 @@
 ############################################################
 # Program is part of MintPy                                #
 # Copyright (c) 2013, Zhang Yunjun, Heresh Fattahi         #
-# Author: Alfredo Terreco, 2016                            #
+# Author: Alfredo Terrero, 2016                            #
 ############################################################
 
 
