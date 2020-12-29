@@ -184,7 +184,7 @@ def main():
         if not parseArgs.server_user or not parseArgs.server_password:
             sys.stderr.write("Error: credentials for the insarmaps server not provided")
         else:
-            print("Trying to remove " + parseArgs.remove)
+            print("Trying to remove %s" % (parseArgs.remove))
             dbController.connect()
             try:
                 dbController.remove_dataset_if_there(parseArgs.remove)
@@ -192,6 +192,7 @@ def main():
                 print(str(e))
             dbController.close()
             dbController.remove_mbtiles(parseArgs.remove + ".mbtiles")
+            print("Successfully removed %s" % (parseArgs.remove))
 
 
     if parseArgs.list:
