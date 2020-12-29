@@ -196,7 +196,8 @@ class InsarDatabaseController(object):
         dataset_id = self.get_dataset_id(unavco_name)
 
         if dataset_id == -1:
-            return
+            raise Exception("Dataset %s is not on insarmaps, so couldn't remove it"
+                            % (unavco_name))
 
         dataset_id_str = str(dataset_id)
         table_name = dataset_id_str
@@ -211,8 +212,8 @@ class InsarDatabaseController(object):
             sql = "DELETE from plot_attributes WHERE area_id = " + dataset_id_str
             self.cursor.execute(sql)
             self.con.commit()
-        except Exception:
-            pass
+        except Exception as e:
+            raise e
 
 class InsarDatasetController(InsarDatabaseController):
     def __init__(self, username, password, host, db, serverUsername, serverPassword):
