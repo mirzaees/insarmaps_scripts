@@ -188,10 +188,11 @@ def main():
             dbController.connect()
             try:
                 dbController.remove_dataset_if_there(parseArgs.remove)
+                dbController.remove_mbtiles(parseArgs.remove + ".mbtiles")
             except Exception as e:
                 print(str(e))
+
             dbController.close()
-            dbController.remove_mbtiles(parseArgs.remove + ".mbtiles")
             print("Successfully removed %s" % (parseArgs.remove))
 
 
