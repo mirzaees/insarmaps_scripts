@@ -54,11 +54,16 @@ class InsarDatabaseController(object):
 
         return None
 
-    def get_dataset_names(self):
+    def get_all_datasets(self):
         sql = "SELECT * FROM area"
         self.cursor.execute(sql)
 
         return self.cursor.fetchall()
+
+    def list_dataset_names(self):
+        datasets = self.get_all_datasets()
+        for d in datasets:
+            print(d[0])
 
     def get_dataset_id(self, dataset):
         sql = "SELECT id from area WHERE area.unavco_name = '" + dataset + "'"

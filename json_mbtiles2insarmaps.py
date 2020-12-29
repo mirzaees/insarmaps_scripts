@@ -133,6 +133,8 @@ def build_parser():
         help="username for the insarmaps server (the machine where the tileserver and http server reside)")
     parser.add_argument("--remove",
         help="UNAVCO name of dataset to remove from insarmaps website", required=False)
+    parser.add_argument("--list",
+        help="List datasets currently on the insarmaps website", required=False, action="store_true")
     parser.add_argument("-P", "--server_password", required=False,
         help="password for the insarmaps server (the machine where the tileserver and http server reside)")
     parser.add_argument("--mbtiles_file", help="mbtiles file to upload", required=False)
@@ -161,39 +163,38 @@ def main():
         print("Uploading json chunks....")
         upload_json(parseArgs.json_folder_positional)
 
-    if parseArgs.mbtiles_file or parseArgs.mbtiles_file_positional:
-        dbContoller = InsarDatasetController(dbUsername,
-                                             dbPassword,
-                                             dbHost,
-                                             'pgis',
-                                             parseArgs.server_user,
-                                             parseArgs.server_password)
+    dbController = InsarDatasetController(dbUsername,
+                                         dbPassword,
+                                         dbHost,
+                                         'pgis',
+                                         parseArgs.server_user,
+                                         parseArgs.server_password)
 
+    if parseArgs.mbtiles_file or parseArgs.mbtiles_file_positional:
         if not parseArgs.server_user or not parseArgs.server_password:
             sys.stderr.write("Error: credentials for the insarmaps server not provided")
         elif parseArgs.mbtiles_file:
             print("Uploading mbtiles...")
-            dbContoller.upload_mbtiles(parseArgs.mbtiles_file)
+            dbController.upload_mbtiles(parseArgs.mbtiles_file)
         else:
             print("Uploading mbtiles....")
-            dbContoller.upload_mbtiles(parseArgs.mbtiles_file_positional)
+            dbController.upload_mbtiles(parseArgs.mbtiles_file_positional)
 
     if parseArgs.remove:
         if not parseArgs.server_user or not parseArgs.server_password:
             sys.stderr.write("Error: credentials for the insarmaps server not provided")
         else:
             print("Removing " + parseArgs.remove)
-            dbContoller = InsarDatasetController(dbUsername,
-                                                 dbPassword,
-                                                 dbHost,
-                                                 'pgis',
-                                                 parseArgs.server_user,
-                                                 parseArgs.server_password)
+            dbController.connect()
+            dbController.remove_dataset_if_there(parseArgs.remove)
+            dbController.close()
+            dbController.remove_mbtiles(parseArgs.remove + ".mbtiles")
 
-            dbContoller.connect()
-            dbContoller.remove_dataset_if_there(parseArgs.remove)
-            dbContoller.close()
-            dbContoller.remove_mbtiles(parseArgs.remove + ".mbtiles")
+
+    if parseArgs.list:
+        dbController.connect()
+        dbController.list_dataset_names()
+        dbController.close()
 
 if __name__ == '__main__':
     main()
