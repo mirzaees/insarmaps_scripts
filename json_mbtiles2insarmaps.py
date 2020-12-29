@@ -189,11 +189,11 @@ def main():
             try:
                 dbController.remove_dataset_if_there(parseArgs.remove)
                 dbController.remove_mbtiles(parseArgs.remove + ".mbtiles")
+                print("Successfully removed %s" % (parseArgs.remove))
             except Exception as e:
                 print(str(e))
 
             dbController.close()
-            print("Successfully removed %s" % (parseArgs.remove))
 
 
     if parseArgs.list:
