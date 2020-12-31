@@ -192,7 +192,7 @@ class InsarDatabaseController(object):
         self.cursor.execute(query, preparedValues)
         self.con.commit()
 
-    def remove_dataset_if_there(self, unavco_name):
+    def remove_dataset(self, unavco_name):
         dataset_id = self.get_dataset_id(unavco_name)
 
         if dataset_id == -1:
@@ -200,8 +200,7 @@ class InsarDatabaseController(object):
                             % (unavco_name))
 
         dataset_id_str = str(dataset_id)
-        table_name = dataset_id_str
-        self.remove_point_table_if_there(table_name)
+        self.remove_point_table_if_there(dataset_id_str)
         # then try to delete from area and extra_attributes
         try:
             dataset_id = self.get_dataset_id(unavco_name)

@@ -80,7 +80,11 @@ def upload_json(folder_path):
     attributesController.connect()
     print("Clearing old dataset, if it is there")
     area_name = get_unavco_name(folder_path)
-    attributesController.remove_dataset_if_there(area_name)
+    try:
+        attributesController.remove_dataset(area_name)
+    except Exception as e:
+        print(str(e))
+
     attributesController.close()
 
     # uploading metadata for area. this creates entry into area table.
@@ -187,7 +191,7 @@ def main():
             print("Trying to remove %s" % (parseArgs.remove))
             dbController.connect()
             try:
-                dbController.remove_dataset_if_there(parseArgs.remove)
+                dbController.remove_dataset(parseArgs.remove)
                 dbController.remove_mbtiles(parseArgs.remove + ".mbtiles")
                 print("Successfully removed %s" % (parseArgs.remove))
             except Exception as e:
