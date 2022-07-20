@@ -19,6 +19,8 @@ import numpy as np
 
 from mintpy.objects import HDFEOS
 from mintpy.mask import mask_matrix
+from mintpy.utils import utils as ut
+import h5py
 
 # ex: python Converter_unavco.py Alos_SM_73_2980_2990_20070107_20110420.h5
 
@@ -63,18 +65,32 @@ def serialize_dictionary(dictionary, fileName):
         pickle.dump(dictionary, file, protocol=pickle.HIGHEST_PROTOCOL)
     return
 
+def get_attribute_or_remove_from_needed(needed_attributes, attributes, attribute_name):
+    val = None
+
+    try:
+        val = attributes[attribute_name]
+    except:
+        needed_attributes.remove(attribute_name)
+
+    return val
 
 # ---------------------------------------------------------------------------------------
 # convert h5 file to json and upload it. folder_name == unavco_name
-def convert_data(attributes, decimal_dates, timeseries_datasets, dates, json_path, folder_name):
+def convert_data(attributes, decimal_dates, timeseries_datasets, dates, json_path, folder_name, lats=None, lons=None):
 
     project_name = attributes["PROJECT_NAME"]
     region = region_name_from_project_name(project_name)
     # get the attributes for calculating latitude and longitude
-    x_step = float(attributes["X_STEP"])
-    y_step = float(attributes["Y_STEP"])
-    x_first = float(attributes["X_FIRST"])
-    y_first = float(attributes["Y_FIRST"])
+    _x_step = get_attribute_or_remove_from_needed(needed_attributes, attributes, "X_STEP")
+    _y_step = get_attribute_or_remove_from_needed(needed_attributes, attributes, "Y_STEP")
+    _x_first = get_attribute_or_remove_from_needed(needed_attributes, attributes, "X_FIRST")
+    _y_first = get_attribute_or_remove_from_needed(needed_attributes, attributes, "Y_FIRST")
+
+    x_step = float(_x_step) if _x_step is not None else 0.0
+    y_step = float(_y_step) if _y_step is not None else 0.0
+    x_first = float(_x_first) if _x_first is not None else 0.0
+    y_first = float(_y_first) if _y_first is not None else 0.0
     num_columns = int(attributes["WIDTH"])
     num_rows = int(attributes["LENGTH"])
     print("columns: %d" % num_columns)
@@ -90,11 +106,13 @@ def convert_data(attributes, decimal_dates, timeseries_datasets, dates, json_pat
     chunk_num = 1
     point_num = 0
     CHUNK_SIZE = 20000
+    if lats is None and lons is None:
+        lats, lons = ut.get_lat_lon(attributes, dimension=1)
 
     # iterate through h5 file timeseries
     for (row, col), value in np.ndenumerate(timeseries_datasets[dates[0]]):
-        longitude = x_first + (col * x_step)
-        latitude = y_first + (row * y_step) 
+        longitude = float(lons[row][col])
+        latitude = float(lats[row][col])
         displacement = float(value) 
         # if value is not equal to naN, create a new json point object and append to siu_man array
         if not math.isnan(displacement):
@@ -300,12 +318,22 @@ def main():
     except:
         print(output_folder + " already exists")
 
+    # read lat and long. MintPy doesn't seem to support this yet, so we use the raw
+    # h5 file object
+    f = h5py.File(he_obj.file, "r")
+    lats = np.array(f["HDFEOS"]["GRIDS"]["timeseries"]["geometry"]["latitude"])
+    lons = np.array(f["HDFEOS"]["GRIDS"]["timeseries"]["geometry"]["longitude"])
+
     # read and convert the datasets, then write them into json files and insert into database
-    convert_data(attributes, decimal_dates, timeseries_datasets, dates, output_folder, folder_name)
+    convert_data(attributes, decimal_dates, timeseries_datasets, dates, output_folder, folder_name, lats, lons)
+    del lats
+    del lons
 
     # run tippecanoe command to get mbtiles file
     os.chdir(os.path.abspath(output_folder))
     os.system("tippecanoe *.json -l chunk_1 -x d -pf -pk -Bg -d9 -D12 -g12 -r0 -o " + folder_name + ".mbtiles")
+    # TODO: add high res mode so we call tippecanoe with below command when in that mode (more accurate coords and # of points)
+    #os.system("tippecanoe *.json -l chunk_1 -x d -o " + folder_name + ".mbtiles")
 
     # ---------------------------------------------------------------------------------------
     # check how long it took to read h5 file data and create json files
