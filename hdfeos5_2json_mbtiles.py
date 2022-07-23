@@ -331,9 +331,9 @@ def main():
 
     # run tippecanoe command to get mbtiles file
     os.chdir(os.path.abspath(output_folder))
-    os.system("tippecanoe *.json -l chunk_1 -x d -pf -pk -Bg -d9 -D12 -g12 -r0 -o " + folder_name + ".mbtiles")
+    #os.system("tippecanoe *.json -l chunk_1 -x d -pf -pk -Bg -d9 -D12 -g12 -r0 -o " + folder_name + ".mbtiles")
     # TODO: add high res mode so we call tippecanoe with below command when in that mode (more accurate coords and # of points)
-    #os.system("tippecanoe *.json -l chunk_1 -x d -o " + folder_name + ".mbtiles")
+    os.system("tippecanoe *.json -l chunk_1 -x d -pf -pk -o " + folder_name + ".mbtiles")
 
     # ---------------------------------------------------------------------------------------
     # check how long it took to read h5 file data and create json files
