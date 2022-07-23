@@ -101,7 +101,7 @@ def upload_json(folder_path):
     for file in os.listdir(folder_path):
         # insert json file to pgsql using ogr2ogr
         file_extension = file.split(".")[1]
-        if file != "metadata.pickle" and file_extension != "mbtiles":
+        if file_extension == "json":
             command = 'ogr2ogr -append -f "PostgreSQL" PG:"dbname=pgis ' + \
                       ' host=' + dbHost + ' user=' + dbUsername + ' password=' + dbPassword + \
                       '" --config PG_USE_COPY YES -nln ' + area_id + ' ' + folder_path + '/' + file
