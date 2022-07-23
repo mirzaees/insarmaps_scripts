@@ -14,6 +14,8 @@ from io import BytesIO
 import urllib.request, urllib.parse, urllib.error
 import requests
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
+from io import BytesIO
+
 
 import mintpy.utils.readfile as readfile
 
@@ -254,6 +256,9 @@ class InsarDatasetController(InsarDatabaseController):
         curl.setopt(curl.HTTPPOST, [('title', fileName), (('file', (curl.FORM_FILE, fileName)))])
         uploadURL = self.host + "/WebServices/uploadMbtiles"
         curl.setopt(curl.URL, uploadURL)
+
+        buffer = BytesIO()
+        curl.setopt(curl.WRITEFUNCTION, buffer.write)
         #curl.setopt(curl.VERBOSE, 1)
         curl.perform()
 
@@ -261,11 +266,13 @@ class InsarDatasetController(InsarDatabaseController):
         if responseCode == 200:
             print("Successfully uploaded " + fileName)
         elif responseCode == 302:
-            sys.stderr.write("Server redirected us... Please check username and password, and try again")
+            sys.stderr.write("Server redirected us... Please check username and password, and try again\n")
         elif responseCode == 301:
-            sys.stderr.write("Server redirected us... Please check host address, and try again")
+            sys.stderr.write("Server redirected us... Please check host address, and try again\n")
         else:
-            sys.stderr.write("The server responded with code: " + str(responseCode))
+            sys.stderr.write("The server responded with code: " + str(responseCode) + "\n")
+            print(buffer.getvalue().decode('UTF-8'))
+
 
     def remove_mbtiles(self, fileName):
         curl = self.curl_login(self.serverUsername, self.serverPassword)
