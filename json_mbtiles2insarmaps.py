@@ -179,10 +179,16 @@ def main():
             sys.stderr.write("Error: credentials for the insarmaps server not provided")
         elif parseArgs.mbtiles_file:
             print("Uploading mbtiles...")
-            dbController.upload_mbtiles(parseArgs.mbtiles_file)
+            if os.path.isfile(parseArgs.mbtiles_file):
+                dbController.upload_mbtiles(parseArgs.mbtiles_file)
+            else:
+                print(parseArgs.mbtiles_file + " doesn't exist")
         else:
             print("Uploading mbtiles....")
-            dbController.upload_mbtiles(parseArgs.mbtiles_file_positional)
+            if os.path.isfile(parseArgs.mbtiles_file_positional):
+                dbController.upload_mbtiles(parseArgs.mbtiles_file_positional)
+            else:
+                print(parseArgs.mbtiles_file_positional + " doesn't exist")
 
     if parseArgs.remove:
         if not parseArgs.server_user or not parseArgs.server_password:
