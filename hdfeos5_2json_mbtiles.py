@@ -331,7 +331,13 @@ def main():
 
     # run tippecanoe command to get mbtiles file
     os.chdir(os.path.abspath(output_folder))
-    high_res_mode = attributes["X_STEP"] is not None and attributes["Y_STEP"] is not None
+    high_res_mode = False # default
+    try:
+        x_step = attributes["X_STEP"]
+        y_step = attributes["Y_STEP"]
+    except:
+        high_res_mode = True # one or both not there, so we are high res
+
     if high_res_mode:
         os.system("tippecanoe *.json -l chunk_1 -x d -pf -pk -o " + folder_name + ".mbtiles")
     else:
