@@ -82,15 +82,18 @@ def convert_data(attributes, decimal_dates, timeseries_datasets, dates, json_pat
     project_name = attributes["PROJECT_NAME"]
     region = region_name_from_project_name(project_name)
     # get the attributes for calculating latitude and longitude
-    _x_step = get_attribute_or_remove_from_needed(needed_attributes, attributes, "X_STEP")
-    _y_step = get_attribute_or_remove_from_needed(needed_attributes, attributes, "Y_STEP")
-    _x_first = get_attribute_or_remove_from_needed(needed_attributes, attributes, "X_FIRST")
-    _y_first = get_attribute_or_remove_from_needed(needed_attributes, attributes, "Y_FIRST")
+    x_step, y_step, x_first, y_first = 0, 0, 0, 0
+    if high_res_mode(attributes):
+        needed_attributes.remove("X_STEP")
+        needed_attributes.remove("Y_STEP")
+        needed_attributes.remove("X_FIRST")
+        needed_attributes.remove("Y_FIRST")
+    else:
+        x_step = float(attributes["X_STEP"])
+        y_step = float(attributes["Y_STEP"])
+        x_first = float(attributes["X_FIRST"])
+        y_first = float(attributes["Y_FIRST"])
 
-    x_step = float(_x_step) if _x_step is not None else 0.0
-    y_step = float(_y_step) if _y_step is not None else 0.0
-    x_first = float(_x_first) if _x_first is not None else 0.0
-    y_first = float(_y_first) if _y_first is not None else 0.0
     num_columns = int(attributes["WIDTH"])
     num_rows = int(attributes["LENGTH"])
     print("columns: %d" % num_columns)
@@ -157,8 +160,15 @@ def convert_data(attributes, decimal_dates, timeseries_datasets, dates, json_pat
     # and then be read by json_mbtiles2insarmaps.py
     insarmapsMetadata = {}
     # calculate mid lat and long of dataset - then use google python lib to get country
-    mid_long = x_first + ((num_columns/2) * x_step)
-    mid_lat = y_first + ((num_rows/2) * y_step)
+    # technically don't need the else since we always use lats and lons arrays now
+    if high_res_mode(attributes):
+        num_rows, num_columns = lats.shape
+        mid_long = float(lons[num_rows // 2][num_columns // 2])
+        mid_lat = float(lats[num_rows // 2][num_columns // 2])
+    else:
+        mid_long = x_first + ((num_columns/2) * x_step)
+        mid_lat = y_first + ((num_rows/2) * y_step)
+
     country = None
     try:
         g = geocoder.google([mid_lat,mid_long], method='reverse', timeout=60.0)
@@ -231,6 +241,15 @@ def make_json_file(chunk_num, points, dates, json_path, folder_name):
     print("converted chunk " + str(chunk_num))
     return chunk
 
+def high_res_mode(attributes):
+    high_res_mode = False # default
+    try:
+        x_step = attributes["X_STEP"]
+        y_step = attributes["Y_STEP"]
+    except:
+        high_res_mode = True # one or both not there, so we are high res
+
+    return high_res_mode
 
 # ---------------------------------------------------------------------------------------
 def build_parser():
@@ -331,14 +350,7 @@ def main():
 
     # run tippecanoe command to get mbtiles file
     os.chdir(os.path.abspath(output_folder))
-    high_res_mode = False # default
-    try:
-        x_step = attributes["X_STEP"]
-        y_step = attributes["Y_STEP"]
-    except:
-        high_res_mode = True # one or both not there, so we are high res
-
-    if high_res_mode:
+    if high_res_mode(attributes):
         os.system("tippecanoe *.json -l chunk_1 -x d -pf -pk -o " + folder_name + ".mbtiles")
     else:
         os.system("tippecanoe *.json -l chunk_1 -x d -pf -pk -Bg -d9 -D12 -g12 -r0 -o " + folder_name + ".mbtiles")
