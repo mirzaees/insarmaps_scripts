@@ -216,6 +216,10 @@ class InsarDatabaseController(object):
         except Exception as e:
             raise e
 
+    def get_disk_space(self):
+        # TODO: need to figure out why our certificate is not recognized anymore
+        return requests.get("https://" + self.host + "/diskSpace", verify=False).json()
+
 class InsarDatasetController(InsarDatabaseController):
     def __init__(self, username, password, host, db, serverUsername, serverPassword):
         super(InsarDatasetController, self).__init__(username, password, host, db)
