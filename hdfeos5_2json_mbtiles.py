@@ -242,14 +242,14 @@ def make_json_file(chunk_num, points, dates, json_path, folder_name):
     return chunk
 
 def high_res_mode(attributes):
-    high_res_mode = False # default
+    high_res = False # default
     try:
         x_step = attributes["X_STEP"]
         y_step = attributes["Y_STEP"]
     except:
-        high_res_mode = True # one or both not there, so we are high res
+        high_res = True # one or both not there, so we are high res
 
-    return high_res_mode
+    return high_res
 
 # ---------------------------------------------------------------------------------------
 def build_parser():
