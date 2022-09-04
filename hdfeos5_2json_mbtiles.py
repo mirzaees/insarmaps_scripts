@@ -21,7 +21,12 @@ from mintpy.objects import HDFEOS
 from mintpy.mask import mask_matrix
 from mintpy.utils import utils as ut
 import h5py
+import multiprocessing as mp
+from multiprocessing import shared_memory
+from multiprocessing import Pool
+from multiprocessing import Value
 
+chunk_num = Value("i", 0)
 # ex: python Converter_unavco.py Alos_SM_73_2980_2990_20070107_20110420.h5
 
 # This script takes a UNAVCO format timeseries h5 file, converts to mbtiles, 
@@ -75,29 +80,32 @@ def get_attribute_or_remove_from_needed(needed_attributes, attributes, attribute
 
     return val
 
-# ---------------------------------------------------------------------------------------
-# convert h5 file to json and upload it. folder_name == unavco_name
-def convert_data(attributes, decimal_dates, timeseries_datasets, dates, json_path, folder_name, lats=None, lons=None):
+def generate_work_idxs(decimal_dates, timeseries_datasets, dates, json_path, folder_name, chunk_size, lats, lons, num_columns, num_rows):
+    num_points = num_columns * num_rows
 
-    project_name = attributes["PROJECT_NAME"]
-    region = region_name_from_project_name(project_name)
-    # get the attributes for calculating latitude and longitude
-    x_step, y_step, x_first, y_first = 0, 0, 0, 0
-    if high_res_mode(attributes):
-        needed_attributes.remove("X_STEP")
-        needed_attributes.remove("Y_STEP")
-        needed_attributes.remove("X_FIRST")
-        needed_attributes.remove("Y_FIRST")
-    else:
-        x_step = float(attributes["X_STEP"])
-        y_step = float(attributes["Y_STEP"])
-        x_first = float(attributes["X_FIRST"])
-        y_first = float(attributes["Y_FIRST"])
+    res = []
+    start = 0
+    end = 0
+    idx = 0
+    for i in range(num_points // chunk_size):
+        start = idx * chunk_size
+        end = (idx + 1) * chunk_size
+        if end > num_points:
+            end = num_points
+        args = [decimal_dates, timeseries_datasets, dates, json_path, folder_name, (start, end - 1), num_columns, num_rows, lats, lons]
+        res.append(tuple(args))
+        idx += 1
 
-    num_columns = int(attributes["WIDTH"])
-    num_rows = int(attributes["LENGTH"])
-    print("columns: %d" % num_columns)
-    print("rows: %d" % num_rows)
+    if num_points % chunk_size != 0:
+        start = end
+        end = num_points
+        args = [decimal_dates, timeseries_datasets, dates, json_path, folder_name, (start, end - 1), num_columns, num_rows, lats, lons]
+        res.append(tuple(args))
+
+    return res
+
+def create_json(decimal_dates, timeseries_datasets, dates, json_path, folder_name, work_idxs, num_columns, num_rows, lats=None, lons=None):
+    global chunk_num
     # create a siu_man array to store json point objects
     siu_man = []
     displacement_values = []
@@ -106,14 +114,15 @@ def convert_data(attributes, decimal_dates, timeseries_datasets, dates, json_pat
     x = decimal_dates
     A = np.vstack([x, np.ones(len(x))]).T
     y = []
-    chunk_num = 1
-    point_num = 0
-    CHUNK_SIZE = 20000
-    if lats is None and lons is None:
-        lats, lons = ut.get_lat_lon(attributes, dimension=1)
-
+    point_num = work_idxs[0]
     # iterate through h5 file timeseries
     for (row, col), value in np.ndenumerate(timeseries_datasets[dates[0]]):
+        iter_point_num = row * num_columns + col
+        if iter_point_num < work_idxs[0]:
+            continue
+        elif iter_point_num > work_idxs[1]:
+            break
+
         longitude = float(lons[row][col])
         latitude = float(lats[row][col])
         displacement = float(value) 
@@ -144,17 +153,46 @@ def convert_data(attributes, decimal_dates, timeseries_datasets, dates, json_pat
             displacement_values = []
             displacements = '{'
             point_num += 1
-            # break;    # for testing purposes convert only 1 point
-
-            # if chunk_size limit is reached, write chunk into a json file
-            # then increment chunk number and clear siu_man array
-            if len(siu_man) == CHUNK_SIZE:
-                make_json_file(chunk_num, siu_man, dates, json_path, folder_name)
-                chunk_num += 1
-                siu_man = []
 
     # write the last chunk that might be smaller than chunk_size
-    make_json_file(chunk_num, siu_man, dates, json_path, folder_name)
+    chunk_num_val = -1
+    with chunk_num.get_lock():
+        chunk_num_val = chunk_num.value
+        chunk_num.value += 1
+
+    if len(siu_man) > 0:
+        make_json_file(chunk_num_val, siu_man, dates, json_path, folder_name)
+        siu_man = []
+
+# ---------------------------------------------------------------------------------------
+# convert h5 file to json and upload it. folder_name == unavco_name
+def convert_data(attributes, decimal_dates, timeseries_datasets, dates, json_path, folder_name, lats=None, lons=None):
+
+    project_name = attributes["PROJECT_NAME"]
+    region = region_name_from_project_name(project_name)
+    # get the attributes for calculating latitude and longitude
+    x_step, y_step, x_first, y_first = 0, 0, 0, 0
+    if high_res_mode(attributes):
+        needed_attributes.remove("X_STEP")
+        needed_attributes.remove("Y_STEP")
+        needed_attributes.remove("X_FIRST")
+        needed_attributes.remove("Y_FIRST")
+    else:
+        x_step = float(attributes["X_STEP"])
+        y_step = float(attributes["Y_STEP"])
+        x_first = float(attributes["X_FIRST"])
+        y_first = float(attributes["Y_FIRST"])
+
+    num_columns = int(attributes["WIDTH"])
+    num_rows = int(attributes["LENGTH"])
+    print("columns: %d" % num_columns)
+    print("rows: %d" % num_rows)
+    if lats is None and lons is None:
+        lats, lons = ut.get_lat_lon(attributes, dimension=1)
+
+    CHUNK_SIZE = 20000
+    process_pool = Pool(3)
+    process_pool.starmap(create_json, generate_work_idxs(decimal_dates, timeseries_datasets, dates, json_path, folder_name, CHUNK_SIZE, lats, lons, num_columns, num_rows))
 
     # dictionary to contain metadata needed by db to be written to a file
     # and then be read by json_mbtiles2insarmaps.py
@@ -286,6 +324,13 @@ def main():
         print("Masking displacement")
         displacement_3d_matrix = mask_matrix(displacement_3d_matrix, mask)
     del mask
+
+    print("Creating shared memory for multiple processes")
+    shm = shared_memory.SharedMemory(create=True, size=displacement_3d_matrix.nbytes)
+    shared_displacement_3d_matrix = np.ndarray(displacement_3d_matrix.shape, dtype=displacement_3d_matrix.dtype, buffer=shm.buf)
+    shared_displacement_3d_matrix[:] = displacement_3d_matrix[:]
+    del displacement_3d_matrix
+    displacement_3d_matrix = shared_displacement_3d_matrix
 
     dates = he_obj.dateList
     attributes = dict(he_obj.metadata)
