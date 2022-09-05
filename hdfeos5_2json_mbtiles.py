@@ -80,10 +80,10 @@ def get_attribute_or_remove_from_needed(needed_attributes, attributes, attribute
 
     return val
 
-def generate_work_idxs(decimal_dates, timeseries_datasets, dates, json_path, folder_name, chunk_size, lats, lons, num_columns, num_rows):
+def generate_worker_args(decimal_dates, timeseries_datasets, dates, json_path, folder_name, chunk_size, lats, lons, num_columns, num_rows):
     num_points = num_columns * num_rows
 
-    res = []
+    worker_args = []
     start = 0
     end = 0
     idx = 0
@@ -93,16 +93,16 @@ def generate_work_idxs(decimal_dates, timeseries_datasets, dates, json_path, fol
         if end > num_points:
             end = num_points
         args = [decimal_dates, timeseries_datasets, dates, json_path, folder_name, (start, end - 1), num_columns, num_rows, lats, lons]
-        res.append(tuple(args))
+        worker_args.append(tuple(args))
         idx += 1
 
     if num_points % chunk_size != 0:
         start = end
         end = num_points
         args = [decimal_dates, timeseries_datasets, dates, json_path, folder_name, (start, end - 1), num_columns, num_rows, lats, lons]
-        res.append(tuple(args))
+        worker_args.append(tuple(args))
 
-    return res
+    return worker_args
 
 def create_json(decimal_dates, timeseries_datasets, dates, json_path, folder_name, work_idxs, num_columns, num_rows, lats=None, lons=None):
     global chunk_num
@@ -117,10 +117,10 @@ def create_json(decimal_dates, timeseries_datasets, dates, json_path, folder_nam
     point_num = work_idxs[0]
     # iterate through h5 file timeseries
     for (row, col), value in np.ndenumerate(timeseries_datasets[dates[0]]):
-        iter_point_num = row * num_columns + col
-        if iter_point_num < work_idxs[0]:
+        cur_iter_point_num = row * num_columns + col
+        if cur_iter_point_num < work_idxs[0]:
             continue
-        elif iter_point_num > work_idxs[1]:
+        elif cur_iter_point_num > work_idxs[1]:
             break
 
         longitude = float(lons[row][col])
@@ -192,7 +192,8 @@ def convert_data(attributes, decimal_dates, timeseries_datasets, dates, json_pat
 
     CHUNK_SIZE = 20000
     process_pool = Pool(num_workers)
-    process_pool.starmap(create_json, generate_work_idxs(decimal_dates, timeseries_datasets, dates, json_path, folder_name, CHUNK_SIZE, lats, lons, num_columns, num_rows))
+    process_pool.starmap(create_json, generate_worker_args(decimal_dates, timeseries_datasets, dates, json_path, folder_name, CHUNK_SIZE, lats, lons, num_columns, num_rows))
+    process_pool.close()
 
     # dictionary to contain metadata needed by db to be written to a file
     # and then be read by json_mbtiles2insarmaps.py
