@@ -154,13 +154,12 @@ def create_json(decimal_dates, timeseries_datasets, dates, json_path, folder_nam
             displacements = '{'
             point_num += 1
 
-    # write the last chunk that might be smaller than chunk_size
-    chunk_num_val = -1
-    with chunk_num.get_lock():
-        chunk_num_val = chunk_num.value
-        chunk_num.value += 1
-
     if len(siu_man) > 0:
+        chunk_num_val = -1
+        with chunk_num.get_lock():
+            chunk_num_val = chunk_num.value
+            chunk_num.value += 1
+
         make_json_file(chunk_num_val, siu_man, dates, json_path, folder_name)
         siu_man = []
 
