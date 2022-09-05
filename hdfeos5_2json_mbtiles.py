@@ -264,16 +264,10 @@ def convert_data(attributes, decimal_dates, timeseries_datasets, dates, json_pat
 # create a json file out of siu man array
 # then put json file into directory named after the h5 file
 def make_json_file(chunk_num, points, dates, json_path, folder_name):
-
-    data = {
-    "type": "FeatureCollection",
-    "dates": dates,
-    "features": points
-    }
-
     chunk = "chunk_" + str(chunk_num) + ".json"
     json_file = open(json_path + "/" + chunk, "w")
-    string_json = json.dumps(data, indent=4, separators=(',',':'))
+    json_features = [json.dumps(feature) for feature in points]
+    string_json = '\n'.join(json_features)
     json_file.write("%s" % string_json)
     json_file.close()
 
@@ -397,11 +391,14 @@ def main():
 
     # run tippecanoe command to get mbtiles file
     os.chdir(os.path.abspath(output_folder))
+    cmd = None
     if high_res_mode(attributes):
-        os.system("tippecanoe *.json -l chunk_1 -x d -pf -pk -o " + folder_name + ".mbtiles")
+        cmd = "tippecanoe *.json -P -l chunk_1 -x d -pf -pk -o " + folder_name + ".mbtiles"
     else:
-        os.system("tippecanoe *.json -l chunk_1 -x d -pf -pk -Bg -d9 -D12 -g12 -r0 -o " + folder_name + ".mbtiles")
+        cmd = "tippecanoe *.json -P -l chunk_1 -x d -pf -pk -Bg -d9 -D12 -g12 -r0 -o " + folder_name + ".mbtiles"
 
+    print("Now running tippecanoe with command %s" % cmd)
+    os.system(cmd)
     # ---------------------------------------------------------------------------------------
     # check how long it took to read h5 file data and create json files
     end_time =  time.perf_counter()

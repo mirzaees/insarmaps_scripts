@@ -159,7 +159,9 @@ def upload_json(folder_path, num_workers=1):
     for t in threads: t.join() # wait for completion
 
     attributesController.connect()
+    print("Indexing table")
     attributesController.index_table_on(area_id, "p", None)
+    print("Clustering table")
     attributesController.cluster_table_using(area_id, area_id + "_p_idx")
     attributesController.close()
 
