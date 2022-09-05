@@ -286,7 +286,7 @@ def high_res_mode(attributes):
 
 # ---------------------------------------------------------------------------------------
 def build_parser():
-    parser = argparse.ArgumentParser(description='Convert a Unavco format H5 file for ingestion into insarmaps.')
+    parser = argparse.ArgumentParser(description='Convert a Unavco format H5 file for ingestion into insarmaps.', epilog="This program will create temporary json chunk files which, when concatenated together, comprise the whole dataset. Tippecanoe is used for concatenating these chunk files into the mbtiles file which describes the whole dataset.")
     parser.add_argument("--num-workers", help="Number of simultaneous processes to run for ingest.", required=False, default=1, type=int)
     required = parser.add_argument_group("required arguments")
     required.add_argument("file", help="unavco file to ingest")
