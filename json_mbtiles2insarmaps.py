@@ -16,6 +16,8 @@ from add_attribute_insarmaps import (
     InsarDatabaseController,
     InsarDatasetController,
 )
+from queue import Queue
+from threading import Thread
 
 
 dbUsername = "INSERT"
@@ -74,9 +76,31 @@ def upload_insarmaps_metadata(fileName):
 
     attributesController.close()
 
-def upload_json(folder_path):
+def worker(queue):
+    # """Process files from the queue."""
+    for args in iter(queue.get, None):
+        try:
+            command = args[0]
+            file = args[1]
+
+            res = os.system(command)
+
+            if res != 0:
+                msg = "Error inserting into the database."
+                msg += " This is most often due to running out of Memory (RAM)"
+                msg += ", or incorrect database credentials... quitting"
+                sys.stderr.write(msg)
+                os._exit(-1)
+
+            print("Inserted " + file + " to db")
+
+        except Exception as e: # catch exceptions to avoid exiting the
+                               # thread prematurely
+           print('%r failed: %s' % (args, e,))
+
+def upload_json(folder_path, num_workers=1):
     global dbUsername, dbPassword, dbHost
-    attributesController = InsarDatabaseController(dbUsername, dbPassword,     dbHost, 'pgis')
+    attributesController = InsarDatabaseController(dbUsername, dbPassword, dbHost, 'pgis')
     attributesController.connect()
     print("Clearing old dataset, if it is there")
     area_name = get_unavco_name(folder_path)
@@ -98,6 +122,12 @@ def upload_json(folder_path):
     attributesController.close()
     firstJsonFile = True
 
+    q = Queue()
+    threads = [Thread(target=worker, args=(q,)) for _ in range(num_workers)]
+    for t in threads:
+        t.daemon = True # threads die if the program dies
+        t.start()
+
     for file in os.listdir(folder_path):
         # insert json file to pgsql using ogr2ogr
         file_extension = file.split(".")[1]
@@ -111,17 +141,22 @@ def upload_json(folder_path):
                           ' host=' + dbHost + ' user=' + dbUsername + ' password=' + dbPassword + \
                           '" --config PG_USE_COPY YES -nln ' + area_id + ' ' + folder_path + '/' + file
                 firstJsonFile = False
+                # upload first one with layer creation options prior
+                # to spawning processes to upload the rest
+                res = os.system(command)
+                print("Inserted " + file + " to db")
 
-            res = os.system(command)
+                if res != 0:
+                    msg = "Error inserting into the database."
+                    msg += " This is most often due to running out of Memory (RAM)"
+                    msg += ", or incorrect database credentials... quitting"
+                    sys.stderr.write(msg)
+                    os._exit(-1)
+            else:
+              q.put_nowait([command, file])
 
-            if res != 0:
-                msg = "Error inserting into the database."
-                msg += " This is most often due to running out of Memory (RAM)"
-                msg += ", or incorrect database credentials... quitting"
-                sys.stderr.write(msg)
-                sys.exit()
-
-            print("Inserted " + file + " to db")
+    for _ in threads: q.put_nowait(None) # signal no more files
+    for t in threads: t.join() # wait for completion
 
     attributesController.connect()
     attributesController.index_table_on(area_id, "p", None)
@@ -131,6 +166,7 @@ def upload_json(folder_path):
 def build_parser():
     dbHost = "insarmaps.rsmas.miami.edu"
     parser = argparse.ArgumentParser(description='Convert a Unavco format HDF5 file for ingestion into insarmaps.')
+    parser.add_argument("--num-workers", help="Number of simultaneous processes to run for ingest.", required=False, default=1, type=int)
     parser.add_argument("--json_folder", help="folder containing json to upload.", required=False)
     parser.add_argument("json_folder_positional", help="folder containing json to upload.", nargs="?")
     parser.add_argument("-U", "--server_user", required=False, 
@@ -162,10 +198,10 @@ def main():
 
     if parseArgs.json_folder:
         print("Uploading json chunks...")
-        upload_json(parseArgs.json_folder)
+        upload_json(parseArgs.json_folder, parseArgs.num_workers)
     elif parseArgs.json_folder_positional:
         print("Uploading json chunks....")
-        upload_json(parseArgs.json_folder_positional)
+        upload_json(parseArgs.json_folder_positional, parseArgs.num_workers)
 
     dbController = InsarDatasetController(dbUsername,
                                          dbPassword,
