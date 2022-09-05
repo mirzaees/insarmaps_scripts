@@ -166,7 +166,7 @@ def create_json(decimal_dates, timeseries_datasets, dates, json_path, folder_nam
 
 # ---------------------------------------------------------------------------------------
 # convert h5 file to json and upload it. folder_name == unavco_name
-def convert_data(attributes, decimal_dates, timeseries_datasets, dates, json_path, folder_name, lats=None, lons=None):
+def convert_data(attributes, decimal_dates, timeseries_datasets, dates, json_path, folder_name, lats=None, lons=None, num_workers=1):
 
     project_name = attributes["PROJECT_NAME"]
     region = region_name_from_project_name(project_name)
@@ -191,7 +191,7 @@ def convert_data(attributes, decimal_dates, timeseries_datasets, dates, json_pat
         lats, lons = ut.get_lat_lon(attributes, dimension=1)
 
     CHUNK_SIZE = 20000
-    process_pool = Pool(3)
+    process_pool = Pool(num_workers)
     process_pool.starmap(create_json, generate_work_idxs(decimal_dates, timeseries_datasets, dates, json_path, folder_name, CHUNK_SIZE, lats, lons, num_columns, num_rows))
 
     # dictionary to contain metadata needed by db to be written to a file
@@ -292,6 +292,7 @@ def high_res_mode(attributes):
 # ---------------------------------------------------------------------------------------
 def build_parser():
     parser = argparse.ArgumentParser(description='Convert a Unavco format H5 file for ingestion into insarmaps.')
+    parser.add_argument("--num-workers", help="Number of simultaneous processes to run for ingest.", required=False, default=1, type=int)
     required = parser.add_argument_group("required arguments")
     required.add_argument("file", help="unavco file to ingest")
     required.add_argument("outputDir", help="directory to place json files and mbtiles file")
@@ -389,7 +390,7 @@ def main():
     lons = np.array(f["HDFEOS"]["GRIDS"]["timeseries"]["geometry"]["longitude"])
 
     # read and convert the datasets, then write them into json files and insert into database
-    convert_data(attributes, decimal_dates, timeseries_datasets, dates, output_folder, folder_name, lats, lons)
+    convert_data(attributes, decimal_dates, timeseries_datasets, dates, output_folder, folder_name, lats, lons, parseArgs.num_workers)
     del lats
     del lons
 
