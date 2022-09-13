@@ -1,0 +1,3 @@
+geocoder
+psycopg2
+pycurl
