@@ -239,7 +239,8 @@ class InsarDatasetController(InsarDatabaseController):
         # hackish way of finding if the host url gets redirected to https version of site
         # TODO: find more elegant solution when time permits, and use requests instead of curl
         # for all of these HTTP requests...
-        self.host = requests.get("https://" + self.host, verify=False).url
+        if self.host == "insarmaps.miami.edu":
+            self.host = requests.get("https://" + self.host, verify=False).url
 
         return curl
 
